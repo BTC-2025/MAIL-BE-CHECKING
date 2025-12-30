@@ -4,39 +4,75 @@
 // import User from "../models/User.js";
 // import fs from "fs";
 
+// const express = require("express");
+// const bcrypt = require("bcrypt");
+// const jwt = require("jsonwebtoken");
+// const User = require("../models/User.js");
+// const fs = require("fs");
+
+// const router = express.Router();
+
+// /* REGISTER */
+// router.post("/register", async (req, res) => {
+//   const { username, password } = req.body;
+//   const email = `${username}@${process.env.MAIL_DOMAIN}`;
+
+//   const hash = await bcrypt.hash(password, 12);
+//   const user = await User.create({ email, password: hash });
+
+//   // Create Maildir
+//   const dir = `/var/mail/vhosts/${process.env.MAIL_DOMAIN}/${username}`;
+//   fs.mkdirSync(dir + "/Maildir", { recursive: true });
+
+//   res.json({ success: true, email });
+// });
+
+// /* LOGIN */
+// router.post("/login", async (req, res) => {
+//   const { email, password } = req.body;
+//   const user = await User.findOne({ email });
+
+//   if (!user || !(await bcrypt.compare(password, user.password)))
+//     return res.status(401).json({ msg: "Invalid credentials" });
+
+//   const token = jwt.sign({ email }, process.env.JWT_SECRET);
+//   res.json({ token });
+// });
+
+// module.exports = router;
+
+
 const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User.js");
-const fs = require("fs");
-
 const router = express.Router();
+const { exec } = require("child_process");
 
-/* REGISTER */
 router.post("/register", async (req, res) => {
-  const { username, password } = req.body;
-  const email = `${username}@${process.env.MAIL_DOMAIN}`;
+  try {
+    const { username, password } = req.body;
 
-  const hash = await bcrypt.hash(password, 12);
-  const user = await User.create({ email, password: hash });
+    if (!username || !password)
+      return res.status(400).json({ success: false, msg: "Missing fields" });
 
-  // Create Maildir
-  const dir = `/var/mail/vhosts/${process.env.MAIL_DOMAIN}/${username}`;
-  fs.mkdirSync(dir + "/Maildir", { recursive: true });
+    const email = `${username}@btctech.shop`;
 
-  res.json({ success: true, email });
-});
+    // Create Linux user without shell access
+    const cmd = `
+      sudo /usr/sbin/useradd -m -s /usr/sbin/nologin ${username} &&
+      echo "${username}:${password}" | sudo /usr/sbin/chpasswd
+    `;
 
-/* LOGIN */
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
+    exec(cmd, (err) => {
+      if (err) {
+        console.log(err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
 
-  if (!user || !(await bcrypt.compare(password, user.password)))
-    return res.status(401).json({ msg: "Invalid credentials" });
+      return res.json({ success: true, email });
+    });
 
-  const token = jwt.sign({ email }, process.env.JWT_SECRET);
-  res.json({ token });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 module.exports = router;
