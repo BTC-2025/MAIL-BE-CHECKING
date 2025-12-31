@@ -22,7 +22,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/mail", mailRoutes);
-app.use('/api/inbox', inboxRoutes )
+app.use('/api/inbox', inboxRoutes)
 
 app.listen(process.env.PORT, () =>
   console.log(`Mail API running on http://localhost:${process.env.PORT}`)

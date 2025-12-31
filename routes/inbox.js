@@ -3,7 +3,7 @@ const router = express.Router();
 const { ImapFlow } = require("imapflow");
 const { simpleParser } = require("mailparser");
 
-router.post("/inbox", async (req, res) => {
+router.post("/get", async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password)
