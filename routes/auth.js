@@ -42,9 +42,47 @@
 // module.exports = router;
 
 
+// const express = require("express");
+// const router = express.Router();
+// const { exec } = require("child_process");
+
+// router.post("/register", async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+
+//     if (!username || !password)
+//       return res.status(400).json({ success: false, msg: "Missing fields" });
+
+//     const email = `${username}@btctech.shop`;
+
+//     // Create Linux user without shell access
+//     const cmd = `
+//       sudo /usr/sbin/useradd -m -s /usr/sbin/nologin ${username} &&
+//       echo "${username}:${password}" | sudo /usr/sbin/chpasswd
+//     `;
+
+//     exec(cmd, (err) => {
+//       if (err) {
+//         console.log(err);
+//         return res.status(500).json({ success: false, error: err.message });
+//       }
+
+//       return res.json({ success: true, email });
+//     });
+
+//   } catch (err) {
+//     return res.status(500).json({ success: false, error: err.message });
+//   }
+// });
+
+// module.exports = router;
+
+
 const express = require("express");
-const router = express.Router();
 const { exec } = require("child_process");
+const bcrypt = require("bcrypt");
+
+const router = express.Router();
 
 router.post("/register", async (req, res) => {
   try {
@@ -55,17 +93,25 @@ router.post("/register", async (req, res) => {
 
     const email = `${username}@btctech.shop`;
 
-    // Create Linux user without shell access
+    // hash password for DB login
+    const hash = await bcrypt.hash(password, 12);
+
+    // Linux create user (NO SHELL login)
     const cmd = `
-      sudo /usr/sbin/useradd -m -s /usr/sbin/nologin ${username} &&
-      echo "${username}:${password}" | sudo /usr/sbin/chpasswd
+      /usr/sbin/useradd -m -s /usr/sbin/nologin ${username} &&
+      echo "${username}:${password}" | /usr/sbin/chpasswd &&
+      mkdir -p /home/${username}/mail &&
+      chown -R ${username}:${username} /home/${username}
     `;
 
-    exec(cmd, (err) => {
+    exec(cmd, async (err) => {
       if (err) {
-        console.log(err);
+        console.error(err);
         return res.status(500).json({ success: false, error: err.message });
       }
+
+      // Save user to Mongo(optional)
+      // await User.create({ email, password: hash });
 
       return res.json({ success: true, email });
     });
