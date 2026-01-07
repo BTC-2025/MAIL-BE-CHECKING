@@ -1,72 +1,62 @@
 const express = require("express");
-const router = express.Router();
 const { ImapFlow } = require("imapflow");
-const { simpleParser } = require("mailparser");
+
+const router = express.Router();
 
 router.post("/get", async (req, res) => {
-    const { email, password } = req.body;
 
-    if (!email || !password)
-        return res.status(400).json({ success: false, message: "Email & password required" });
+  const { email, password } = req.body;
 
-    const client = new ImapFlow({
-        host: process.env.IMAP_HOST,
-        port: process.env.IMAP_PORT,
-        secure: process.env.IMAP_SECURE === "true",
-        auth: {
-            user: email,
-            pass: password
-        }
+  if (!email || !password)
+    return res.status(400).json({ success: false, msg: "Missing email/password" });
+
+  const client = new ImapFlow({
+    host: "mail.btctech.shop",
+    port: 993,
+    secure: true,
+    auth: {
+      user: email,
+      pass: password
+    },
+    logger: false
+  });
+
+  try {
+    await client.connect();
+
+    // Select INBOX
+    let lock = await client.getMailboxLock("INBOX");
+
+    let messages = [];
+
+    // Fetch latest 20 messages
+    for await (let msg of client.fetch(
+      { seen: false },     // fetch unread only (change to {} for all)
+      { envelope: true, source: false, bodyStructure: false }
+    )) {
+      messages.push({
+        uid: msg.uid,
+        subject: msg.envelope.subject,
+        from: msg.envelope.from?.[0]?.address,
+        date: msg.envelope.date
+      });
+    }
+
+    lock.release();
+    await client.logout();
+
+    return res.json({
+      success: true,
+      inbox: messages
     });
 
-    try {
-        await client.connect();
-
-        // Select inbox
-        const lock = await client.getMailboxLock("INBOX");
-
-        const messages = [];
-        let count = 0;
-
-        try {
-            // Get last 20 messages
-            for await (let msg of client.fetch(
-                { seq: `${client.mailbox.exists - 19}:*` },
-                { envelope: true, source: true, internalDate: true }
-            )) {
-                const parsed = await simpleParser(msg.source);
-
-                messages.push({
-                    subject: parsed.subject || "",
-                    from: parsed.from?.value?.[0]?.address || "",
-                    fromName: parsed.from?.value?.[0]?.name || "",
-                    date: msg.internalDate,
-                    text: parsed.text?.slice(0, 120) || "",
-                    html: parsed.html || ""
-                });
-
-                count++;
-                if (count >= 20) break;
-            }
-        } finally {
-            lock.release();
-        }
-
-        await client.logout();
-
-        return res.json({
-            success: true,
-            total: messages.length,
-            emails: messages.reverse() // newest last
-        });
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({
-            success: false,
-            error: err.message || "IMAP error"
-        });
-    }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "IMAP error"
+    });
+  }
 });
 
 module.exports = router;
