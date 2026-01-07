@@ -78,6 +78,52 @@
 // module.exports = router;
 
 
+// const express = require("express");
+// const { exec } = require("child_process");
+// const bcrypt = require("bcrypt");
+
+// const router = express.Router();
+
+// router.post("/register", async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+
+//     if (!username || !password)
+//       return res.status(400).json({ success: false, msg: "Missing fields" });
+
+//     const email = `${username}@btctech.shop`;
+
+//     // hash password for DB login
+//     const hash = await bcrypt.hash(password, 12);
+
+//     // Linux create user (NO SHELL login)
+//     const cmd = `
+//       /usr/sbin/useradd -m -s /usr/sbin/nologin ${username} &&
+//       echo "${username}:${password}" | /usr/sbin/chpasswd &&
+//       mkdir -p /home/${username}/mail &&
+//       chown -R ${username}:${username} /home/${username}
+//     `;
+
+//     exec(cmd, async (err) => {
+//       if (err) {
+//         console.error(err);
+//         return res.status(500).json({ success: false, error: err.message });
+//       }
+
+//       // Save user to Mongo(optional)
+//       // await User.create({ email, password: hash });
+
+//       return res.json({ success: true, email });
+//     });
+
+//   } catch (err) {
+//     return res.status(500).json({ success: false, error: err.message });
+//   }
+// });
+
+// module.exports = router;
+
+
 const express = require("express");
 const { exec } = require("child_process");
 const bcrypt = require("bcrypt");
@@ -93,15 +139,15 @@ router.post("/register", async (req, res) => {
 
     const email = `${username}@btctech.shop`;
 
-    // hash password for DB login
+    // hash password for database (optional)
     const hash = await bcrypt.hash(password, 12);
 
-    // Linux create user (NO SHELL login)
+    // Create Linux user with NO LOGIN + Maildir
     const cmd = `
       /usr/sbin/useradd -m -s /usr/sbin/nologin ${username} &&
       echo "${username}:${password}" | /usr/sbin/chpasswd &&
-      mkdir -p /home/${username}/mail &&
-      chown -R ${username}:${username} /home/${username}
+      maildirmake.dovecot /home/${username}/Maildir &&
+      chown -R ${username}:${username} /home/${username}/Maildir
     `;
 
     exec(cmd, async (err) => {
@@ -110,7 +156,7 @@ router.post("/register", async (req, res) => {
         return res.status(500).json({ success: false, error: err.message });
       }
 
-      // Save user to Mongo(optional)
+      // OPTIONAL — Save to MongoDB:
       // await User.create({ email, password: hash });
 
       return res.json({ success: true, email });
